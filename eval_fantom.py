@@ -20,9 +20,7 @@ cf.use_true_colors()
 cf.use_style('monokai')
 
 import task.dataset_loader as loader
-from agents.gpt import GPT3BaseAgent, ConversationalGPTBaseAgent
-from agents.huggingface import FlanT5Agent, FlanUL2Agent, MistralAIAgent, ZephyrAgent
-from agents.together_ai import TogetherAIAgent
+from agents.load_model import load_model
 
 PROJECT_HOME = Path(__file__).parent.resolve()
 DATA_DIR = 'data'
@@ -46,11 +44,12 @@ class FantomEvalAgent():
     def __init__(self, args):
         self.args = args
         self.prompt_header = "This is a theory-of-mind test. Please answer the question regarding facts or beliefs, based on the following in-person conversation between individuals who have just met.\n\n"
-        self.output_filename_suffix = '_{}_input_{}_cot-{}.json'.format(self.args.conversation_input_type, self.args.model, self.args.use_cot)
+        model_name_suffix = self.args.model.split("/")[-1]
+        self.output_filename_suffix = '_{}_input_{}_cot-{}.json'.format(self.args.conversation_input_type, model_name_suffix, self.args.use_cot)
         self.load_fantom()
         self.setup_fantom()
 
-        self.model = self.load_model()
+        self.model = load_model(self.args.model)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.embedder = SentenceTransformer('sentence-transformers/all-roberta-large-v1').to(self.device)
 
@@ -61,25 +60,6 @@ class FantomEvalAgent():
         response = self.model.interact(prompt)
         return response
 
-    def load_model(self):
-        if self.args.model.startswith("text-"):
-            model = GPT3BaseAgent({'engine': self.args.model, 'temperature': 0, 'top_p': 0.95, 'frequency_penalty': 0.0, 'presence_penalty': 0.0})
-        elif self.args.model.startswith("gpt-"):
-            model = ConversationalGPTBaseAgent({'model': self.args.model, 'temperature': 0, 'top_p': 0.95, 'frequency_penalty': 0.0, 'presence_penalty': 0.0})
-        elif self.args.model.startswith('flan-t5'):
-            model = FlanT5Agent(self.args)
-        elif self.args.model.startswith('flan-ul2'):
-            model = FlanUL2Agent(self.args)
-        elif self.args.model.endswith('-tg'):
-            model = TogetherAIAgent(self.args.__dict__)
-        elif self.args.model.startswith('mistral'):
-            model = MistralAIAgent(self.args)
-        elif self.args.model.startswith('zephyr'):
-            model = ZephyrAgent(self.args)
-        else:
-            raise NotImplementedError
-
-        return model
 
     def compute_f1(self, ground_truth, model_response):
         """
@@ -283,16 +263,31 @@ class FantomEvalAgent():
         report = {'model': self.args.model, 'conversation_input_type': self.args.conversation_input_type}
         f1_metric = evaluate.load("f1")
         aggregation_target = self.args.aggregation_target + "_id"
-        tom_df = df[df['question_type'].str.startswith("tom")]
+        tom_df = df[df['question_type'].str.startswith("tom")].copy()
         target_df = tom_df[tom_df['missed_info_accessibility'] == target_scenario].copy()
+
+        if target_scenario == 'accessible':
+            # Filter out the set_ids that have all the questions that are labeled as accessible for the ALL* and ALL scores
+            # This is because in sets where there are belief questions labeled as 'inaccessible' (i.e., there is an unaware character), all the other question types are also treated as 'inaccessible'.
+            # As a result, in the accessible scenario, there are many sets that are only left with a few belief questions. This leads to exaggerated ALl* and ALL scores.
+            # As a quick & dirty solution, we will focus only on the sets where all the questions are labeled as accessible when measuring the the ALL* and ALL scores.
+            _target_df = tom_df[tom_df['missed_info_accessibility'] == target_scenario].copy()
+            set_ids = _target_df['set_id'].unique()
+            target_sets = []
+            for set_id in set_ids:
+                if tom_df[tom_df['set_id'] == set_id]['missed_info_accessibility'].eq(target_scenario).all():
+                    target_sets.append(set_id)
+        else:
+            target_sets = target_df['set_id'].unique()
+
 
         ############# Scores #############
         # ALL* score
-        report[target_scenario+':set:ALL*'] = target_df.groupby(aggregation_target)['result'].all().mean()
+        report[target_scenario+':set:ALL*'] = target_df[target_df['set_id'].isin(target_sets)].groupby(aggregation_target)['result'].all().mean()
 
         # ALL score
         target_question_for_all = ["tom:belief:"+target_scenario+":multiple-choice", "tom:answerability:list", "tom:answerability:binary", "tom:info_accessibility:list", "tom:info_accessibility:binary"]
-        report[target_scenario+':set:ALL'] = target_df[target_df['question_type'].isin(target_question_for_all)].groupby(aggregation_target)['result'].all().mean()
+        report[target_scenario+':set:ALL'] = target_df[target_df['question_type'].isin(target_question_for_all) & target_df['set_id'].isin(target_sets)].groupby(aggregation_target)['result'].all().mean()
 
         # Belief Questions: multiple-choice, dist., f1
         report[target_scenario+':belief:multiple-choice'] = target_df[target_df['question_type'].str.endswith(":multiple-choice")]['result'].mean()
@@ -691,7 +686,7 @@ class FantomEvalAgent():
     def run(self):
         os.makedirs(EVAL_DIR_PATH, exist_ok=True)
         if args.existing_response_file_name is None:
-            if self.args.model.startswith("gpt-") or self.args.model.startswith("text-") or self.args.model.endswith("-tg"):
+            if self.args.model.startswith("text-"):
                 model_responses = self.run_inference()
             else:
                 model_responses = self.run_batch_inference()
@@ -720,8 +715,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='arguments for generating dialogues')
     parser.add_argument('--model',
                         type=str,
-                        default='gpt-4-0314',
-                        choices=['gpt-4-1106-preview', 'gpt-4-0613', 'gpt-4-0314', 'gpt-3.5-turbo-1106', 'gpt-3.5-turbo-0613', 'gpt-3.5-turbo-0301', 'text-davinci-003', 'text-davinci-002', 'text-curie-001', 'flan-ul2', 'flan-t5-xxl', 'flan-t5-xl', 'Llama-2-13b-hf', 'Llama-2-13b-chat-hf', 'llama-2-70b-tg', 'llama-2-70b-chat-tg', 'zephyr-7b-alpha', 'zephyr-7b-beta', 'mistral', 'mistral-instruct', 'mpt-30b-instruct-tg', 'guanaco-33b-tg'],
                         help='name of the model to run evaluation',
     )
     parser.add_argument('--batch-size',
