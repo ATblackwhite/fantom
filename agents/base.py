@@ -13,10 +13,6 @@ class BaseAgent(ABC):
         pass
     
     @abstractmethod
-    def batch_interact(self, prompts):
-        pass
-
-    @abstractmethod
     def interact(self, prompt):
         pass
 

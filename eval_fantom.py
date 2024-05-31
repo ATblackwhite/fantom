@@ -712,7 +712,7 @@ def main(args):
     evaluator.run()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='arguments for generating dialogues')
+    parser = argparse.ArgumentParser(description='arguments for evaluation of FANToM dataset with models')
     parser.add_argument('--model',
                         type=str,
                         help='name of the model to run evaluation',

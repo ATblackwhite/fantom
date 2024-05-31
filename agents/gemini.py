@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import google.generativeai as genai
 from .base import AsyncBaseAgent
 
+
 class AsyncGeminiAgent(AsyncBaseAgent):
     def __init__(self, kwargs: dict):
         super().__init__()
