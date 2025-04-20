@@ -2,8 +2,9 @@ name: fantom
 channels:
   - defaults
   - conda-forge
+  - nvidia
 dependencies:
-  - nvidia::cudatoolkit=11.7
+  - nvidia::cuda-toolkit=11.7.0
   - python=3.9.16
   - pip=20.2.3
   - pip:

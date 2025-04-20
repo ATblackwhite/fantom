@@ -14,6 +14,7 @@ tqdm.pandas()
 
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics import f1_score as sklearn_f1_score
 
 import colorful as cf
 cf.use_true_colors()
@@ -52,6 +53,23 @@ class FantomEvalAgent():
         self.model = load_model(self.args.model)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.embedder = SentenceTransformer('sentence-transformers/all-roberta-large-v1').to(self.device)
+
+    def sanitize_filename(self, filename):
+        """
+        检查并处理文件名中的非法字符
+        
+        Args:
+            filename (str): 原始文件名
+            
+        Returns:
+            str: 处理后的合法文件名
+        """
+        # 定义非法字符集合
+        illegal_chars = r'[<>:"/\\|?*]'
+        # 替换非法字符为下划线
+        import re
+        sanitized = re.sub(illegal_chars, '_', filename)
+        return sanitized
 
     def load_fantom(self):
         self.fantom_df = loader.load()
@@ -299,14 +317,26 @@ class FantomEvalAgent():
         report[target_scenario+':answerability:list'] = target_df[target_df['question_type'] == "tom:answerability:list"]['result'].mean()
         answerability_model_responses = target_df[target_df['question_type'] == 'tom:answerability:binary']['binarized_model_answer'].to_list()
         answerability_references = target_df[target_df['question_type'] == 'tom:answerability:binary']['correct_answer'].map(self.yesno_to_int).to_list()
-        report[target_scenario+':answerability:binary-f1'] = f1_metric.compute(predictions=answerability_model_responses, references=answerability_references, pos_label=0, average="weighted")['f1']
+        try:
+            # 尝试使用 evaluate 库
+            f1_score = f1_metric.compute(predictions=answerability_model_responses, references=answerability_references, pos_label=0, average="weighted")
+            report[target_scenario+':answerability:binary-f1'] = float(f1_score['f1']) if isinstance(f1_score['f1'], (int, float)) else f1_score['f1']
+        except (AttributeError, TypeError):
+            # 如果出错，回退到直接使用 sklearn 的 f1_score
+            report[target_scenario+':answerability:binary-f1'] = float(sklearn_f1_score(y_true=answerability_references, y_pred=answerability_model_responses, pos_label=0, average="weighted"))
 
         # Info Accessibility Questions: All, list, binary
         report[target_scenario+':info_accessibility:set:ALL'] = target_df[target_df['question_type'].str.startswith("tom:info_accessibility")].groupby(aggregation_target)['result'].all().mean()
         report[target_scenario+':info_accessibility:list'] = target_df[target_df['question_type']=="tom:info_accessibility:list"]['result'].mean()
         accessibility_model_responses = target_df[target_df['question_type'] == 'tom:info_accessibility:binary']['binarized_model_answer'].to_list()
         accessibility_references = target_df[target_df['question_type'] == 'tom:info_accessibility:binary']['correct_answer'].map(self.yesno_to_int).to_list()
-        report[target_scenario+':info_accessibility:binary-f1'] = f1_metric.compute(predictions=accessibility_model_responses, references=accessibility_references, pos_label=0, average="weighted")['f1']
+        try:
+            # 尝试使用 evaluate 库
+            f1_score = f1_metric.compute(predictions=accessibility_model_responses, references=accessibility_references, pos_label=0, average="weighted")
+            report[target_scenario+':info_accessibility:binary-f1'] = float(f1_score['f1']) if isinstance(f1_score['f1'], (int, float)) else f1_score['f1']
+        except (AttributeError, TypeError):
+            # 如果出错，回退到直接使用 sklearn 的 f1_score
+            report[target_scenario+':info_accessibility:binary-f1'] = float(sklearn_f1_score(y_true=accessibility_references, y_pred=accessibility_model_responses, pos_label=0, average="weighted"))
 
         # Fact Questions
         report['fact_word-f1'] = df[df['question_type'].str.startswith("fact")]['result'].mean()
@@ -423,17 +453,17 @@ class FantomEvalAgent():
         Dump the reports and the evaluation outputs
         """
 
-        evaluated_responses_filename = "evaluated_responses" + self.output_filename_suffix
+        evaluated_responses_filename = self.sanitize_filename("evaluated_responses" + self.output_filename_suffix)
         output_dict = {'model': self.args.model, 'results': evaluation_outputs}
         os.makedirs(EVAL_DIR_PATH, exist_ok=True)
         with open(os.path.join(EVAL_DIR_PATH, evaluated_responses_filename), 'w') as f:
             json.dump(output_dict, f, indent=4)
 
-        controlq_report_filename = "control_task_report" + self.output_filename_suffix
+        controlq_report_filename = self.sanitize_filename("control_task_report" + self.output_filename_suffix)
         with open(os.path.join(EVAL_DIR_PATH, controlq_report_filename), 'w') as f:
             json.dump(reports['control_task'], f, indent=4)
 
-        report_filename = "REPORT" + self.output_filename_suffix
+        report_filename = self.sanitize_filename("REPORT" + self.output_filename_suffix)
         with open(os.path.join(EVAL_DIR_PATH, report_filename), 'w') as f:
             json.dump(reports['fantom'], f, indent=4)
 

@@ -2,12 +2,36 @@ import os
 from types import SimpleNamespace
 import google.generativeai as genai
 from .base import AsyncBaseAgent
+from dotenv import load_dotenv
+import requests
 
+load_dotenv()
 
 class AsyncGeminiAgent(AsyncBaseAgent):
     def __init__(self, kwargs: dict):
         super().__init__()
-        genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+        # 设置代理
+        proxy = os.getenv('HTTP_PROXY') or os.getenv('HTTPS_PROXY')
+        if proxy:
+            # 设置全局代理
+            os.environ['HTTP_PROXY'] = proxy
+            os.environ['HTTPS_PROXY'] = proxy
+            # 为 requests 设置代理
+            session = requests.Session()
+            session.proxies = {
+                'http': proxy,
+                'https': proxy
+            }
+            genai.configure(
+                api_key=os.environ["GOOGLE_API_KEY"],
+                transport='rest',
+                client_options={
+                    'api_endpoint': 'https://generativelanguage.googleapis.com'
+                }
+            )
+        else:
+            genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+            
         self.args = SimpleNamespace(**kwargs)
         self._set_default_args()
         self.model = genai.GenerativeModel(self.args.model)
