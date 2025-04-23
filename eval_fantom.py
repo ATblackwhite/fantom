@@ -5,8 +5,27 @@ import random
 import evaluate
 from pathlib import Path
 from collections import Counter
+from dotenv import load_dotenv
+
+load_dotenv()
+
+os.environ["WindowsSdkDir"] = os.getenv("WindowsSdkDir")
+os.environ["WindowsSdkVerBinDir"] = os.getenv("WindowsSdkVerBinDir")
+os.environ["WindowsSdkIncludeDir"] = os.getenv("WindowsSdkIncludeDir")
+os.environ["WindowsSdkLibDir"] = os.getenv("WindowsSdkLibDir")
+os.environ["WindowsSDKVersion"] = os.getenv("WindowsSDKVersion")
+
+# 设置环境变量以禁用Triton
+# os.environ["PYTORCH_TRITON"] = "0"  # 禁用PyTorch中的Triton使用
+# os.environ["TORCH_COMPILE_DISABLE_CUDA_GRAPH"] = "1"
 
 import torch
+# import torch._dynamo
+
+# 禁用PyTorch的动态编译功能（Dynamo）
+# torch._dynamo.config.suppress_errors = True  # 抑制错误并回退到eager模式
+# torch._dynamo.config.disable_cudagraphs = True  # 禁用CUDA图
+
 from torch.utils.data import DataLoader, Dataset
 import pandas as pd
 from tqdm import tqdm
@@ -464,6 +483,7 @@ class FantomEvalAgent():
             json.dump(reports['control_task'], f, indent=4)
 
         report_filename = self.sanitize_filename("REPORT" + self.output_filename_suffix)
+
         with open(os.path.join(EVAL_DIR_PATH, report_filename), 'w') as f:
             json.dump(reports['fantom'], f, indent=4)
 
@@ -632,7 +652,7 @@ class FantomEvalAgent():
         return response
 
     def get_last_savepoint(self):
-        responses_filename = "model_responses" + self.output_filename_suffix + "l" # jsonl
+        responses_filename = self.sanitize_filename("model_responses" + self.output_filename_suffix + "l") # jsonl
         model_responses_filename_path = os.path.join(EVAL_DIR_PATH, responses_filename)
 
         # check if model outputs file exists

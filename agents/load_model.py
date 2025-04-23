@@ -5,6 +5,7 @@ from .gemini import AsyncGeminiAgent
 # from .together_ai import AsyncTogetherAIAgent, AsyncLlama3Agent
 # from .custom_openai import CustomOpenAIAgent
 from .ollama import AsyncOllamaAgent
+from .huggingface import BitNetAgent, NemotronAgent, Phi4MiniInstructAgent
 from dotenv import load_dotenv
 import os
 
@@ -38,8 +39,9 @@ def load_model(model_name, **kwargs):
         model = AsyncGeminiAgent({'model': model_name, 'temperature': 0, 'max_tokens': 256})
     elif model_name.startswith('ollama-'):
         # 使用ollama:前缀来标识Ollama模型，如ollama:llama3
-        ollama_model_name = model_name.split('-', 1)[1]
-        
+        ollama_model_name = model_name.split('-', 1)[1:]
+        ollama_model_name = '-'.join(ollama_model_name)
+
         # 如果在kwargs中提供了host，设置环境变量
         if 'host' in kwargs:
             os.environ['OLLAMA_HOST'] = kwargs.pop('host')
@@ -50,6 +52,12 @@ def load_model(model_name, **kwargs):
             'max_tokens': kwargs.get('max_tokens', 512),
             'options': kwargs.get('options', {})
         })
+    elif model_name.startswith('bitnet-'):
+        model = BitNetAgent(**kwargs)
+    elif model_name.startswith('Nemotron-'):
+        model = NemotronAgent(**kwargs)
+    elif model_name.startswith('phi4-'):
+        model = Phi4MiniInstructAgent(**kwargs)
     else:
         raise NotImplementedError
 
