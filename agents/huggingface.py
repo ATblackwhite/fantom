@@ -1,5 +1,6 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from .base import BaseAgent
 import os
 
@@ -505,3 +506,214 @@ class Phi4MiniInstructAgent(HuggingFaceChatAgent):
                 )
             generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             return self.postprocess_output(generated_text)
+
+class FlanT5Agent:
+    def __init__(self, kwargs: dict):
+        self.model_name = kwargs.get("model", "google/flan-t5-small")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+        self.temperature = kwargs.get("temperature", 0.7)
+        self.max_tokens = kwargs.get("max_tokens", 128)
+
+    def generate(self, prompt):
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)
+        outputs = self.model.generate(
+            inputs.input_ids,
+            max_length=self.max_tokens,
+            temperature=self.temperature,
+            num_return_sequences=1,
+            do_sample=True,
+        )
+        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return response
+
+    def interact(self, text):
+        """
+        Single interaction method.
+        """
+        return self.generate(text)
+
+    def batch_interact(self, texts):
+        """
+        Batch interaction method.
+        """
+        responses = [self.generate(text) for text in texts]
+        return responses
+
+class FlanT5BaseAgent:
+    def __init__(self, kwargs: dict):
+        self.model_name = kwargs.get("model", "google/flan-t5-base")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+        self.temperature = kwargs.get("temperature", 0.7)
+        self.max_tokens = kwargs.get("max_tokens", 128)
+
+    def generate(self, prompt):
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)
+        outputs = self.model.generate(
+            inputs.input_ids,
+            max_length=self.max_tokens,
+            temperature=self.temperature,
+            num_return_sequences=1,
+            do_sample=True,
+        )
+        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return response
+
+    def interact(self, text):
+        """
+        Single interaction method.
+        """
+        return self.generate(text)
+
+    def batch_interact(self, texts):
+        """
+        Batch interaction method.
+        """
+        responses = [self.generate(text) for text in texts]
+        return responses
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+class DeepSeekAgent:
+    def __init__(self, kwargs: dict):
+        self.model_name = kwargs.get("model", "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, padding_side="left")
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_name, device_map="auto", torch_dtype=torch.float32)  # 改为 float32
+        self.temperature = kwargs.get("temperature", 0.7)
+        self.max_tokens = kwargs.get("max_tokens", 128)
+        self.tokenizer.pad_token = self.tokenizer.eos_token  # 设置填充标记为结束标记
+
+    def generate(self, prompt):
+        """
+        Generate a single response for the given prompt.
+        """
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512, padding=True).to(self.model.device)
+        outputs = self.model.generate(
+            inputs.input_ids,
+            max_length=self.max_tokens,
+            temperature=self.temperature,
+            num_return_sequences=1,
+            do_sample=True,
+        )
+        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return response
+
+    def interact(self, text):
+        """
+        Single interaction method.
+        """
+        return self.generate(text)
+
+    def batch_interact(self, texts):
+        """
+        Batch interaction method.
+        """
+        inputs = self.tokenizer(texts, return_tensors="pt", truncation=True, max_length=512, padding=True).to(self.model.device)
+        outputs = self.model.generate(
+            inputs.input_ids,
+            max_length=self.max_tokens,
+            temperature=self.temperature,
+            num_return_sequences=1,
+            do_sample=True,
+        )
+        responses = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        return responses
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+class DistilGPT2Agent:
+    def __init__(self, kwargs: dict):
+        self.model_name = kwargs.get("model", "distilbert/distilgpt2")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, padding_side="left")
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_name, device_map="auto", torch_dtype=torch.float32)
+        self.temperature = kwargs.get("temperature", 0.7)
+        self.max_tokens = kwargs.get("max_tokens", 128)
+        self.tokenizer.pad_token = self.tokenizer.eos_token  # 设置填充标记为结束标记
+
+    def generate(self, prompt):
+        """
+        Generate a single response for the given prompt.
+        """
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512, padding=True).to(self.model.device)
+        outputs = self.model.generate(
+            inputs.input_ids,
+            max_length=self.max_tokens,
+            temperature=self.temperature,
+            num_return_sequences=1,
+            do_sample=True,
+        )
+        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return response
+
+    def interact(self, text):
+        """
+        Single interaction method.
+        """
+        return self.generate(text)
+
+    def batch_interact(self, texts):
+        """
+        Batch interaction method.
+        """
+        inputs = self.tokenizer(texts, return_tensors="pt", truncation=True, max_length=512, padding=True).to(self.model.device)
+        outputs = self.model.generate(
+            inputs.input_ids,
+            max_length=self.max_tokens,
+            temperature=self.temperature,
+            num_return_sequences=1,
+            do_sample=True,
+        )
+        responses = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        return responses
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+
+class DistilBertAgent:
+    def __init__(self, kwargs: dict):
+        self.model_name = kwargs.get("model", "distilbert-base-cased")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, padding_side="left")
+        
+        # 设置 pad_token 为 eos_token 或自定义 pad_token
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name, torch_dtype=torch.float32)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)  # 手动将模型移动到设备
+        self.temperature = kwargs.get("temperature", 0.7)
+        self.max_tokens = kwargs.get("max_tokens", 128)
+
+    def generate(self, prompt):
+        """
+        Generate a single response for the given prompt.
+        """
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512, padding=True).to(self.device)
+        outputs = self.model(**inputs)
+        logits = outputs.logits
+        predicted_class = logits.argmax(dim=-1).item()
+        return f"Predicted class: {predicted_class}"
+
+    def interact(self, text):
+        """
+        Single interaction method.
+        """
+        return self.generate(text)
+
+    def batch_interact(self, texts):
+        """
+        Batch interaction method.
+        """
+        inputs = self.tokenizer(
+            texts,
+            return_tensors="pt",
+            truncation=True,
+            max_length=512,
+            padding=True
+        ).to(self.device)
+        
+        outputs = self.model(**inputs)
+        logits = outputs.logits
+        predicted_classes = logits.argmax(dim=-1).tolist()
+        return [f"Predicted class: {cls}" for cls in predicted_classes]

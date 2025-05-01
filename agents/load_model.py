@@ -58,6 +58,16 @@ def load_model(model_name, **kwargs):
         model = NemotronAgent(**kwargs)
     elif model_name.startswith('phi4-'):
         model = Phi4MiniInstructAgent(**kwargs)
+    elif model_name == "google/flan-t5-small":
+        model = FlanT5Agent({'model': model_name, **kwargs})
+    elif model_name == "google/flan-t5-base":
+        model = FlanT5BaseAgent({'model': model_name, **kwargs})
+    elif model_name == "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B":
+        model = DeepSeekAgent({'model': model_name, **kwargs})
+    elif model_name == "distilbert/distilgpt2":
+        model = DistilGPT2Agent({'model': model_name, **kwargs})
+    elif model_name == "distilbert-base-cased":
+        model = DistilBertAgent({'model': model_name, **kwargs})
     else:
         raise NotImplementedError
 

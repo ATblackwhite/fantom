@@ -1,0 +1,32 @@
+{
+    "model": "google/flan-t5-base",
+    "conversation_input_type": "short",
+    "inaccessible:set:ALL*": 0.0,
+    "inaccessible:set:ALL": 0.0,
+    "inaccessible:belief:multiple-choice": 0.1,
+    "inaccessible:belief:distance": 27.6,
+    "inaccessible:belief_true_word-f1": 11.4,
+    "inaccessible:answerability:set:ALL": 0.0,
+    "inaccessible:answerability:list": 16.5,
+    "inaccessible:answerability:binary-f1": 1.0999999999999999,
+    "inaccessible:info_accessibility:set:ALL": 0.0,
+    "inaccessible:info_accessibility:list": 19.0,
+    "inaccessible:info_accessibility:binary-f1": 1.5,
+    "fact_word-f1": 11.899999999999999,
+    "inaccessible:tom:lists:wrong_reasons:freq": {
+        "excluded_aware_character": 277,
+        "did_both": 144,
+        "included_unaware_character": 114
+    },
+    "inaccessible:tom:binary:wrong_reasons:freq": {
+        "false_negative": 26,
+        "false_positive": 16,
+        "irrelevant_response": 4379
+    },
+    "inaccessible:first-order": 28.299999999999997,
+    "inaccessible:second-order": 26.200000000000003,
+    "inaccessible:second-order:acyclic": 28.599999999999998,
+    "inaccessible:second-order:cyclic": 23.9,
+    "inaccessible:set:ALL_character": 0.1,
+    "inaccessible:set:character_answer_consistency": 0.2
+}
